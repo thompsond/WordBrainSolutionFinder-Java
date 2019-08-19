@@ -1,15 +1,19 @@
 package com.darrenthompson.WordBrain;
 
 import java.awt.geom.Point2D;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.Set;
-import java.util.concurrent.RecursiveAction;
+import java.util.TreeSet;
+import java.util.concurrent.ForkJoinTask;
+import java.util.concurrent.RecursiveTask;
+import java.util.stream.Collectors;
 
 
 
 @SuppressWarnings("serial")
-public class Puzzle extends RecursiveAction {
+public class Puzzle extends RecursiveTask<Set<String>> {
 	public LinkedHashSet<String> dict;
 	private char[][] puzzle;
 	private Set<String> foundWords;
@@ -52,18 +56,23 @@ public class Puzzle extends RecursiveAction {
 	}
 
 	@Override
-	public void compute() {
+	protected Set<String> compute() {
 		int square = (int)Math.pow(puzzle.length, 2);
 		if(wordLength < 0 || wordLength > square) {
 			System.out.println("Invalid word length");
-			return;
+			return new TreeSet<String>();
 		}
+		int area = (endRow + 1 - startRow) * (endCol + 1 - startCol);
 		// Split the work in half if the total area is > 16 squares
-		if( ( (endRow + 1 - startRow) * (endCol + 1 - startCol) ) <= 16 && (wordLength > (int)(0.38 * square))) {
-			computeDirectly(startRow, startCol, endRow, endCol, wordLength, usedLocations);
-			return;
+		if( area <= 16 && ((1.0 * area) / wordLength) <= 1.5) {
+			return computeDirectly(startRow, startCol, endRow, endCol, wordLength, usedLocations);
 		}
-		invokeAll(new Puzzle(dict, puzzle, startRow, startCol, endRow/2, endCol, wordLength, foundWords), new Puzzle(dict, puzzle, (endRow/2)+1, startCol, endRow, endCol, wordLength, foundWords));
+		
+		
+		ArrayList<Puzzle> tasks = new ArrayList<>();
+		tasks.add(new Puzzle(dict, puzzle, startRow, startCol, endRow/2, endCol, wordLength, foundWords)); // left
+		tasks.add(new Puzzle(dict, puzzle, (endRow/2)+1, startCol, (endRow/2)+1, endCol, wordLength, foundWords)); // right
+		return ForkJoinTask.invokeAll(tasks).stream().flatMap(t -> t.join().stream()).collect(Collectors.toSet());
 	}
 	
 	/***
@@ -75,7 +84,7 @@ public class Puzzle extends RecursiveAction {
 	 * @param wordLength The length of the words to match
 	 * @param usedLocations A collection of the previously used locations
 	 */
-	public void computeDirectly(int startRow, int startCol, int endRow, int endCol, int wordLength, LinkedList<Point2D.Double> usedLocations) {
+	public Set<String> computeDirectly(int startRow, int startCol, int endRow, int endCol, int wordLength, LinkedList<Point2D.Double> usedLocations) {
 		for(int row = startRow; row <= endRow; row++) {
 			for(int col = startCol; col <= endCol; col++) {
 				if(!isValid(row, col, new LinkedList<Point2D.Double>())) {
@@ -89,6 +98,7 @@ public class Puzzle extends RecursiveAction {
 				}
 			}
 		}
+		return foundWords;
 	}
 	
 	
@@ -195,7 +205,5 @@ public class Puzzle extends RecursiveAction {
 		}
 		return true;
 	}
-	
-	public Set<String> getFoundWords() { return foundWords; }
 	
 }
