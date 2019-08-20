@@ -62,16 +62,23 @@ public class Puzzle extends RecursiveTask<Set<String>> {
 			System.out.println("Invalid word length");
 			return new TreeSet<String>();
 		}
-		int area = (endRow + 1 - startRow) * (endCol + 1 - startCol);
+		
+		int area = (endRow + 1 - startRow) * (endCol + 1 - startCol); // The total area of the puzzle
 		// Split the work in half if the total area is > 16 squares
 		if( area <= 16 && ((1.0 * area) / wordLength) <= 1.5) {
 			return computeDirectly(startRow, startCol, endRow, endCol, wordLength, usedLocations);
 		}
 		
-		
+		int diff = endRow - startRow;
 		ArrayList<Puzzle> tasks = new ArrayList<>();
-		tasks.add(new Puzzle(dict, puzzle, startRow, startCol, endRow/2, endCol, wordLength, foundWords)); // left
-		tasks.add(new Puzzle(dict, puzzle, (endRow/2)+1, startCol, (endRow/2)+1, endCol, wordLength, foundWords)); // right
+		if(startRow == 0) {
+			tasks.add(new Puzzle(dict, puzzle, startRow, startCol, (diff+startRow)/2, endCol, wordLength, foundWords)); // left
+			tasks.add(new Puzzle(dict, puzzle, ((diff+startRow)/2)+1, startCol, endRow, endCol, wordLength, foundWords)); // right
+		}
+		else {
+			tasks.add(new Puzzle(dict, puzzle, startRow, startCol, ((diff+startRow)/2)+1, endCol, wordLength, foundWords)); // left
+			tasks.add(new Puzzle(dict, puzzle, ((diff+startRow)/2)+2, startCol, endRow, endCol, wordLength, foundWords)); // right
+		}
 		return ForkJoinTask.invokeAll(tasks).stream().flatMap(t -> t.join().stream()).collect(Collectors.toSet());
 	}
 	
